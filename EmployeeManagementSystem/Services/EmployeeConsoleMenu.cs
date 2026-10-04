@@ -3,41 +3,70 @@ using System.Text.RegularExpressions;
 using EmployeeManagementSystem.Enums;
 using EmployeeManagementSystem.Exceptions;
 using EmployeeManagementSystem.Models;
-using EmployeeManagementSystem.Persistence;
 using EmployeeManagementSystem.Policies;
-using EmployeeManagementSystem.Repositories;
 
 namespace EmployeeManagementSystem.Services
 {
-    internal sealed class EmployeeConsoleMenu
+    public class EmployeeConsoleMenu
     {
-        private readonly EmployeeRepository _employees;
-        private readonly EmployeeFileStorage _fileStorage;
-        private readonly ErrorLog _errorLog;
-        private readonly DateTime _today;
-        private readonly CancellationToken _cancellationToken;
+        private readonly List<Employee> _employees = new List<Employee>();
+        private readonly List<Department> _departments = new List<Department>();
+        private readonly DateTime _today = DateTime.Today;
 
-        public EmployeeConsoleMenu(
-            EmployeeRepository employees,
-            EmployeeFileStorage fileStorage,
-            ErrorLog errorLog,
-            DateTime today,
-            CancellationToken cancellationToken)
+        public EmployeeConsoleMenu()
         {
-            _employees = employees;
-            _fileStorage = fileStorage;
-            _errorLog = errorLog;
-            _today = today;
-            _cancellationToken = cancellationToken;
+            SeedInitialData();
         }
 
-        public async Task RunAsync()
+        private void SeedInitialData()
+        {
+            // Seed initial departments
+            var engineering = new Department(10, "Engineering");
+            var peopleOps = new Department(20, "People Ops");
+            var sales = new Department(30, "Sales & Marketing");
+
+            _departments.Add(engineering);
+            _departments.Add(peopleOps);
+            _departments.Add(sales);
+
+            // Seed sample employees
+            var dev = new Developer(
+                new PersonName("Rahul", "Sharma"),
+                new Address("12 MG Road", "Bengaluru", "Karnataka", "560001"),
+                DateTime.Today.AddMonths(-10),
+                65000m,
+                "C# / .NET",
+                new { Pan = "ABCDE1234F", Uan = "100123456789" });
+            dev.AssignTo(engineering);
+            _employees.Add(dev);
+
+            var mgr = new Manager(
+                new PersonName("Priya", "Patel"),
+                new Address("45 Indiranagar", "Bengaluru", "Karnataka", "560038"),
+                DateTime.Today.AddYears(-2),
+                120000m,
+                new { Pan = "XYZAB5678C", Uan = "100987654321" });
+            mgr.AssignTo(engineering);
+            mgr.AddDirectReport(dev);
+            _employees.Add(mgr);
+
+            var intern = new Intern(
+                new PersonName("Aarav", "Mehta"),
+                new Address("88 Koramangala", "Bengaluru", "Karnataka", "560034"),
+                DateTime.Today.AddMonths(-1),
+                22000m,
+                new { Pan = "PQRST9012D", Uan = "100555666777" });
+            intern.AssignTo(peopleOps);
+            _employees.Add(intern);
+        }
+
+        public void Run()
         {
             bool exit = false;
-            while (!exit && !_cancellationToken.IsCancellationRequested)
+            while (!exit)
             {
                 PrintMenu();
-                int choice = ReadInt("Choose an option: ", 0, 9);
+                int choice = ReadInt("Choose an option: ", 0, 7);
                 Console.WriteLine();
 
                 try
@@ -65,36 +94,22 @@ namespace EmployeeManagementSystem.Services
                         case 7:
                             RunPayroll();
                             break;
-                        case 8:
-                            await ShowRecentErrorsAsync();
-                            break;
-                        case 9:
-                            await SaveAsync();
-                            break;
                         case 0:
                             exit = true;
                             break;
                     }
                 }
-                catch (OperationCanceledException)
-                {
-                    exit = true;
-                }
                 catch (EmsException ex)
                 {
-                    await ReportFailureAsync("Menu operation", ex);
+                    Console.WriteLine($"\n[Error]: {ex.Message}");
                 }
                 catch (ArgumentException ex)
                 {
-                    await ReportFailureAsync("Menu input or operation", ex);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    await ReportFailureAsync("Menu operation", ex);
+                    Console.WriteLine($"\n[Input Error]: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
-                    await ReportFailureAsync("Unexpected menu failure", ex);
+                    Console.WriteLine($"\n[Unexpected Error]: {ex.Message}");
                 }
 
                 if (!exit)
@@ -107,31 +122,32 @@ namespace EmployeeManagementSystem.Services
         private void PrintMenu()
         {
             Console.WriteLine();
-            Console.WriteLine("=== Sample Company Inc Employee Operations ===");
+            Console.WriteLine("==================================================");
+            Console.WriteLine("       Sample Company Inc - Employee System       ");
+            Console.WriteLine("==================================================");
             Console.WriteLine("1. Hire employee");
             Console.WriteLine("2. View roster");
             Console.WriteLine("3. Assign department");
             Console.WriteLine("4. Give raise");
-            Console.WriteLine("5. Preview or confirm address move");
+            Console.WriteLine("5. Update employee address");
             Console.WriteLine("6. Resign employee");
             Console.WriteLine("7. Run payroll");
-            Console.WriteLine("8. View recent error log entries");
-            Console.WriteLine("9. Save now");
-            Console.WriteLine("0. Save and exit");
-            Console.WriteLine();
+            Console.WriteLine("0. Exit");
+            Console.WriteLine("==================================================");
         }
 
         private void HireEmployee()
         {
-            Console.WriteLine("Hire employee");
+            Console.WriteLine("=== Hire New Employee ===");
             Console.WriteLine("1. Developer");
             Console.WriteLine("2. Manager");
             Console.WriteLine("3. Intern");
             Console.WriteLine("4. Contractor");
             Console.WriteLine("0. Cancel");
-            int type = ReadInt("Employee type: ", 0, 4);
+            int type = ReadInt("Select employee type: ", 0, 4);
             if (type == 0)
             {
+                Console.WriteLine("Hiring cancelled.");
                 return;
             }
 
@@ -179,70 +195,99 @@ namespace EmployeeManagementSystem.Services
                     break;
             }
 
-            _employees.Hire(employee);
-            Console.WriteLine($"Hired {employee.FormatNotificationLabel()}.");
+            _employees.Add(employee);
+            Console.WriteLine($"\nSuccessfully hired {employee.Name} as {employee.Role} (Staff ID: {employee.Id})!");
+
             if (ReadYesNo("Assign a department now? (y/n): "))
             {
                 Department department = ReadDepartment();
-                _employees.AssignToDepartment(employee, department);
+                employee.AssignTo(department);
+                Console.WriteLine($"{employee.Name} assigned to {department.Name}.");
             }
         }
 
         private void ListRoster()
         {
-            Console.WriteLine("1. Everyone");
-            Console.WriteLine("2. Active staff");
-            Console.WriteLine("3. Leavers");
-            Console.WriteLine("4. By department");
-            int choice = ReadInt("View: ", 1, 4);
-            List<Employee> people;
+            Console.WriteLine("=== View Employee Roster ===");
+            Console.WriteLine("1. All employees");
+            Console.WriteLine("2. Active employees only");
+            Console.WriteLine("3. Resigned employees only");
+            Console.WriteLine("4. Filter by department");
+            int choice = ReadInt("Choose view: ", 1, 4);
+            Console.WriteLine();
 
+            List<Employee> list;
             switch (choice)
             {
                 case 2:
-                    people = _employees.ListActive();
+                    list = _employees.FindAll(e => e.Status == EmploymentStatus.Active);
                     break;
                 case 3:
-                    people = _employees.ListLeavers();
+                    list = _employees.FindAll(e => e.Status == EmploymentStatus.Resigned);
                     break;
                 case 4:
-                    people = _employees.ListByDepartment(ReadDepartment().Id);
+                    Department dept = ReadDepartment();
+                    list = _employees.FindAll(e => e.DepartmentId == dept.Id);
                     break;
                 default:
-                    people = _employees.ListInHireOrder();
+                    list = new List<Employee>(_employees);
                     break;
             }
 
-            if (people.Count == 0)
+            if (list.Count == 0)
             {
-                Console.WriteLine("No matching employees.");
+                Console.WriteLine("No matching employees found.");
                 return;
             }
 
-            for (int i = 0; i < people.Count; i++)
+            Console.WriteLine($"Total employees: {list.Count}");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            for (int i = 0; i < list.Count; i++)
             {
-                Employee employee = people[i];
-                Console.WriteLine($"  {employee}");
-                Console.WriteLine($"    {employee.DescribeStatutory()}");
-                Console.WriteLine($"    {employee.GetEmploymentSummary(_today)}");
+                Employee emp = list[i];
+                string deptName = "Unassigned";
+                if (emp.DepartmentId.HasValue)
+                {
+                    Department? d = _departments.Find(dep => dep.Id == emp.DepartmentId.Value);
+                    if (d != null)
+                    {
+                        deptName = d.Name;
+                    }
+                }
+
+                Console.WriteLine($"[{emp.Id}] {emp.Name} | {emp.Role} | {emp.Contract} | {emp.Status} | Dept: {deptName}");
+                Console.WriteLine($"    Address: {emp.HomeAddress}");
+                Console.WriteLine($"    Statutory: {emp.DescribeStatutory()}");
+                Console.WriteLine($"    Base Salary: {emp.MonthlySalaryInr:C} | Notice: {emp.NoticePeriodDays} days");
+                Console.WriteLine($"    Status: {emp.GetEmploymentSummary(_today)}");
+                Console.WriteLine("--------------------------------------------------------------------------------");
             }
         }
 
         private void AssignDepartment()
         {
+            Console.WriteLine("=== Assign Department ===");
             Employee employee = ReadEmployee();
             Department department = ReadDepartment();
-            _employees.AssignToDepartment(employee, department);
-            Console.WriteLine($"{employee.Name} assigned to {department.Name}.");
+            employee.AssignTo(department);
+            Console.WriteLine($"\n{employee.Name} (ID: {employee.Id}) assigned to {department.Name}.");
         }
 
         private void GiveRaise()
         {
+            Console.WriteLine("=== Give Salary Raise ===");
             Employee employee = ReadEmployee();
+            if (employee.Status != EmploymentStatus.Active)
+            {
+                Console.WriteLine("Cannot give raise to an inactive/resigned employee.");
+                return;
+            }
+
+            Console.WriteLine($"Current Salary: {employee.MonthlySalaryInr:C}");
             decimal amount;
             while (true)
             {
-                amount = ReadDecimal("Raise amount in INR: ");
+                amount = ReadDecimal("Enter raise amount in INR: ");
                 if (amount <= 0)
                 {
                     Console.WriteLine("Raise amount must be greater than zero.");
@@ -252,139 +297,141 @@ namespace EmployeeManagementSystem.Services
                 break;
             }
 
-            string reason = ReadRequired("Reason: ");
-            _employees.RecordRaise(employee, amount, reason);
-            Console.WriteLine($"New salary: {employee.MonthlySalaryInr:C}.");
+            string reason = ReadRequired("Reason for raise: ");
+            employee.GiveRaise(amount, reason);
+            Console.WriteLine($"\nRaise applied! New salary for {employee.Name}: {employee.MonthlySalaryInr:C}");
         }
 
         private void MoveAddress()
         {
+            Console.WriteLine("=== Update Address ===");
             Employee employee = ReadEmployee();
-            Console.WriteLine($"Current address: {employee.HomeAddress}");
+            Console.WriteLine($"Current Address: {employee.HomeAddress}\n");
+
             Address proposed = employee.ProposeRelocation(
                 ReadRequired("New street: "),
                 ReadCity("New city: "),
                 ReadState("New state: "),
                 ReadPostalCode("New postal code: "));
-            Console.WriteLine($"Proposed address: {proposed}");
-            if (ReadYesNo("Confirm this move? (y/n): "))
+
+            Console.WriteLine($"\nProposed Address: {proposed}");
+            if (ReadYesNo("Confirm this address change? (y/n): "))
             {
                 employee.ConfirmRelocation(proposed);
-                Console.WriteLine("Address updated.");
+                Console.WriteLine("Address updated successfully.");
             }
             else
             {
-                Console.WriteLine("Address change discarded.");
+                Console.WriteLine("Address update cancelled.");
             }
         }
 
         private void ResignEmployee()
         {
+            Console.WriteLine("=== Resign Employee ===");
             Employee employee = ReadEmployee();
-            DateTime lastDay = ReadDate("Last day (yyyy-MM-dd): ");
-            _employees.RecordResignation(employee, lastDay);
-            Console.WriteLine($"{employee.Name} recorded as resigned.");
+            if (employee.Status == EmploymentStatus.Resigned)
+            {
+                Console.WriteLine("This employee has already resigned.");
+                return;
+            }
+
+            DateTime lastDay = ReadDate("Last working day (yyyy-MM-dd): ");
+            employee.Resign(lastDay);
+            Console.WriteLine($"\n{employee.Name} (ID: {employee.Id}) has been marked as resigned on {lastDay:yyyy-MM-dd}.");
         }
 
         private void RunPayroll()
         {
-            List<Employee> active = _employees.ListActive();
+            Console.WriteLine("=== Run Monthly Payroll ===");
+            List<Employee> active = _employees.FindAll(e => e.Status == EmploymentStatus.Active);
             if (active.Count == 0)
             {
-                Console.WriteLine("No active staff to pay.");
+                Console.WriteLine("No active employees on the books.");
                 return;
             }
+
+            decimal totalBase = 0m;
+            decimal totalVariable = 0m;
+
+            Console.WriteLine("{0,-6} {1,-20} {2,-12} {3,15} {4,15} {5,15}", "ID", "Name", "Role", "Base Pay", "Variable Pay", "Total Payout");
+            Console.WriteLine(new string('-', 90));
 
             for (int i = 0; i < active.Count; i++)
             {
-                Console.WriteLine($"  {active[i].DescribeCompensation()}");
+                Employee emp = active[i];
+                decimal variable = emp.ComputeVariablePay();
+                decimal total = emp.MonthlySalaryInr + variable;
+
+                totalBase += emp.MonthlySalaryInr;
+                totalVariable += variable;
+
+                Console.WriteLine("{0,-6} {1,-20} {2,-12} {3,15:C} {4,15:C} {5,15:C}",
+                    emp.Id,
+                    emp.Name.Full.Length > 20 ? emp.Name.Full.Substring(0, 17) + "..." : emp.Name.Full,
+                    emp.Role,
+                    emp.MonthlySalaryInr,
+                    variable,
+                    total);
             }
 
-            (int people, decimal basePay, decimal variablePay) = _employees.SummarizeActivePay();
-            Console.WriteLine($"Totals: {people} people, {basePay:C} base + {variablePay:C} variable.");
-        }
-
-        private async Task ShowRecentErrorsAsync()
-        {
-            List<string> entries = await _errorLog.ReadRecentAsync(5, _cancellationToken);
-            if (entries.Count == 0)
-            {
-                Console.WriteLine("No error log entries.");
-                return;
-            }
-
-            Console.WriteLine("Recent errors");
-            for (int i = 0; i < entries.Count; i++)
-            {
-                Console.WriteLine(entries[i]);
-            }
-        }
-
-        private async Task SaveAsync()
-        {
-            (int departments, int people, int badges) = await _fileStorage.SaveAsync(
-                _employees,
-                _cancellationToken);
-            Console.WriteLine($"Saved {departments} departments, {people} people, {badges} badges.");
-        }
-
-        private async Task ReportFailureAsync(string operation, Exception exception)
-        {
-            Console.WriteLine($"Could not complete that operation: {exception.Message}");
-            await _errorLog.RecordAsync(
-                operation,
-                exception,
-                "Interactive console request",
-                _cancellationToken);
+            Console.WriteLine(new string('-', 90));
+            Console.WriteLine($"Active Staff: {active.Count}");
+            Console.WriteLine($"Total Base Pay:      {totalBase:C}");
+            Console.WriteLine($"Total Variable Pay:  {totalVariable:C}");
+            Console.WriteLine($"Grand Total Payout:  {(totalBase + totalVariable):C}");
         }
 
         private Employee ReadEmployee()
         {
             while (true)
             {
-                int staffId = ReadInt("Staff id: ", 1, int.MaxValue);
-                Employee? employee = _employees.FindByStaffId(staffId);
-                if (employee != null)
+                int staffId = ReadInt("Enter Staff ID: ", 1, int.MaxValue);
+                Employee? emp = _employees.Find(e => e.Id == staffId);
+                if (emp != null)
                 {
-                    return employee;
+                    return emp;
                 }
 
-                Console.WriteLine("No employee has that staff id. Try again.");
+                Console.WriteLine($"No employee found with Staff ID {staffId}. Please try again.");
             }
         }
 
         private Department ReadDepartment()
         {
-            List<Department> departments = _employees.ListDepartments();
-            if (departments.Count == 0)
+            if (_departments.Count == 0)
             {
-                throw new InvalidOperationException("No departments are registered.");
+                throw new InvalidOperationException("No departments exist.");
             }
 
-            Console.WriteLine("Departments");
-            for (int i = 0; i < departments.Count; i++)
+            Console.WriteLine("\nAvailable Departments:");
+            for (int i = 0; i < _departments.Count; i++)
             {
-                Console.WriteLine($"  {departments[i].Id}. {departments[i].Name} ({departments[i].CurrentHeadcount} people)");
+                Console.WriteLine($"  ID { _departments[i].Id}: {_departments[i].Name} ({_departments[i].CurrentHeadcount} people)");
             }
 
             while (true)
             {
-                int departmentId = ReadInt("Department id: ", 1, int.MaxValue);
-                Department? department = _employees.FindDepartment(departmentId);
-                if (department != null)
+                int id = ReadInt("Enter Department ID: ", 1, int.MaxValue);
+                Department? dept = _departments.Find(d => d.Id == id);
+                if (dept != null)
                 {
-                    return department;
+                    return dept;
                 }
 
-                Console.WriteLine("No department has that id. Try again.");
+                Console.WriteLine("Invalid Department ID. Please try again.");
             }
         }
+
+        // ==========================================
+        // Input Validation Helpers
+        // ==========================================
 
         private static PersonName ReadName()
         {
             string first = ReadNamePart("First name: ", isRequired: true)!;
             string last = ReadNamePart("Last name: ", isRequired: true)!;
-            string? middle = ReadNamePart("Middle name (optional): ", isRequired: false);
+            string? middle = ReadNamePart("Middle name (optional, press Enter to skip): ", isRequired: false);
             return new PersonName(first, last, middle);
         }
 
@@ -649,51 +696,9 @@ namespace EmployeeManagementSystem.Services
             }
         }
 
-        private static bool ContainsDigits(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return false;
-            }
-
-            for (int i = 0; i < value.Length; i++)
-            {
-                if (char.IsDigit(value[i]))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool IsValidLocationName(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            bool hasLetter = false;
-            for (int i = 0; i < value.Length; i++)
-            {
-                char c = value[i];
-                if (char.IsLetter(c))
-                {
-                    hasLetter = true;
-                }
-                else if (c != ' ' && c != '-' && c != '.' && c != '\'')
-                {
-                    return false;
-                }
-            }
-
-            return hasLetter;
-        }
-
         private static EmployeeRole ReadContractorRole()
         {
-            Console.WriteLine("Contractor role: 1 Developer, 2 TeamLead, 3 Manager, 4 HR");
+            Console.WriteLine("Contractor role: 1. Developer, 2. TeamLead, 3. Manager, 4. HR");
             int choice = ReadInt("Role: ", 1, 4);
             switch (choice)
             {
@@ -721,13 +726,6 @@ namespace EmployeeManagementSystem.Services
 
                 Console.WriteLine("A value is required.");
             }
-        }
-
-        private static string? ReadOptional(string prompt)
-        {
-            Console.Write(prompt);
-            string value = Console.ReadLine() ?? string.Empty;
-            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         private static int ReadInt(string prompt, int minimum, int maximum)
@@ -800,6 +798,48 @@ namespace EmployeeManagementSystem.Services
 
                 Console.WriteLine("Enter y or n.");
             }
+        }
+
+        private static bool ContainsDigits(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (char.IsDigit(value[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsValidLocationName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            bool hasLetter = false;
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (char.IsLetter(c))
+                {
+                    hasLetter = true;
+                }
+                else if (c != ' ' && c != '-' && c != '.' && c != '\'')
+                {
+                    return false;
+                }
+            }
+
+            return hasLetter;
         }
 
         private static void Pause()

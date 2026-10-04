@@ -18,10 +18,6 @@ namespace EmployeeManagementSystem.Models
         {
         }
 
-        internal Manager(EmployeeState state, object statutory)
-            : base(state, statutory)
-        {
-        }
 
         public override int NoticePeriodDays => 90;
 

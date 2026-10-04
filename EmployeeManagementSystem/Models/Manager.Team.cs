@@ -33,5 +33,15 @@ namespace EmployeeManagementSystem.Models
             _directReports[_directReportCount] = employeeName;
             _directReportCount++;
         }
+
+        public void AddDirectReport(Employee employee)
+        {
+            if (employee == null)
+            {
+                throw new ArgumentNullException(nameof(employee));
+            }
+
+            AddDirectReport(employee.Name.Full);
+        }
     }
 }
