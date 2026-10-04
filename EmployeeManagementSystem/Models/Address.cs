@@ -17,10 +17,58 @@ namespace EmployeeManagementSystem.Models
 
         public Address(string street, string city, string state, string postalCode)
         {
-            Street = street;
-            City = city;
-            State = state;
-            PostalCode = postalCode;
+            if (string.IsNullOrWhiteSpace(street))
+            {
+                throw new ArgumentException("Street cannot be empty.", nameof(street));
+            }
+
+            if (string.IsNullOrWhiteSpace(city))
+            {
+                throw new ArgumentException("City cannot be empty.", nameof(city));
+            }
+
+            if (ContainsDigits(city))
+            {
+                throw new ArgumentException($"City '{city}' cannot contain numbers.", nameof(city));
+            }
+
+            if (string.IsNullOrWhiteSpace(state))
+            {
+                throw new ArgumentException("State cannot be empty.", nameof(state));
+            }
+
+            if (ContainsDigits(state))
+            {
+                throw new ArgumentException($"State '{state}' cannot contain numbers.", nameof(state));
+            }
+
+            if (string.IsNullOrWhiteSpace(postalCode))
+            {
+                throw new ArgumentException("Postal code cannot be empty.", nameof(postalCode));
+            }
+
+            Street = street.Trim();
+            City = city.Trim();
+            State = state.Trim();
+            PostalCode = postalCode.Trim();
+        }
+
+        public static bool ContainsDigits(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (char.IsDigit(text[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public Address RelocateTo(string street, string city, string state, string postalCode)

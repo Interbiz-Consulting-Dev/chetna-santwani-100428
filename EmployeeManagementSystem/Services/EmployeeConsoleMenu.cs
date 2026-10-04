@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using EmployeeManagementSystem.Enums;
 using EmployeeManagementSystem.Exceptions;
 using EmployeeManagementSystem.Models;
 using EmployeeManagementSystem.Persistence;
+using EmployeeManagementSystem.Policies;
 using EmployeeManagementSystem.Repositories;
 
 namespace EmployeeManagementSystem.Services
@@ -136,7 +138,7 @@ namespace EmployeeManagementSystem.Services
             PersonName name = ReadName();
             Address address = ReadAddress();
             DateTime hireDate = ReadDate("Hire date (yyyy-MM-dd): ");
-            decimal salary = ReadDecimal("Monthly salary/rate in INR: ");
+            decimal salary = ReadSalary(type);
             Employee employee;
 
             switch (type)
@@ -147,7 +149,7 @@ namespace EmployeeManagementSystem.Services
                         address,
                         hireDate,
                         salary,
-                        ReadRequired("Primary skill: "),
+                        ReadSkill("Primary skill: "),
                         ReadFteStatutory());
                     break;
                 case 2:
@@ -173,7 +175,7 @@ namespace EmployeeManagementSystem.Services
                         address,
                         hireDate,
                         salary,
-                        new { Gstin = ReadRequired("GSTIN: ") });
+                        new { Gstin = ReadGstin("GSTIN: ") });
                     break;
             }
 
@@ -237,7 +239,19 @@ namespace EmployeeManagementSystem.Services
         private void GiveRaise()
         {
             Employee employee = ReadEmployee();
-            decimal amount = ReadDecimal("Raise amount in INR: ");
+            decimal amount;
+            while (true)
+            {
+                amount = ReadDecimal("Raise amount in INR: ");
+                if (amount <= 0)
+                {
+                    Console.WriteLine("Raise amount must be greater than zero.");
+                    continue;
+                }
+
+                break;
+            }
+
             string reason = ReadRequired("Reason: ");
             _employees.RecordRaise(employee, amount, reason);
             Console.WriteLine($"New salary: {employee.MonthlySalaryInr:C}.");
@@ -249,9 +263,9 @@ namespace EmployeeManagementSystem.Services
             Console.WriteLine($"Current address: {employee.HomeAddress}");
             Address proposed = employee.ProposeRelocation(
                 ReadRequired("New street: "),
-                ReadRequired("New city: "),
-                ReadRequired("New state: "),
-                ReadRequired("New postal code: "));
+                ReadCity("New city: "),
+                ReadState("New state: "),
+                ReadPostalCode("New postal code: "));
             Console.WriteLine($"Proposed address: {proposed}");
             if (ReadYesNo("Confirm this move? (y/n): "))
             {
@@ -368,28 +382,313 @@ namespace EmployeeManagementSystem.Services
 
         private static PersonName ReadName()
         {
-            return new PersonName(
-                ReadRequired("First name: "),
-                ReadRequired("Last name: "),
-                ReadOptional("Middle name (optional): "));
+            string first = ReadNamePart("First name: ", isRequired: true)!;
+            string last = ReadNamePart("Last name: ", isRequired: true)!;
+            string? middle = ReadNamePart("Middle name (optional): ", isRequired: false);
+            return new PersonName(first, last, middle);
+        }
+
+        private static string? ReadNamePart(string prompt, bool isRequired)
+        {
+            while (true)
+            {
+                Console.Write(prompt);
+                string value = (Console.ReadLine() ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    if (!isRequired)
+                    {
+                        return null;
+                    }
+
+                    Console.WriteLine("A value is required.");
+                    continue;
+                }
+
+                if (ContainsDigits(value))
+                {
+                    Console.WriteLine("Name cannot contain numbers. Please enter letters only.");
+                    continue;
+                }
+
+                if (!PersonName.IsValidName(value))
+                {
+                    Console.WriteLine("Name can only contain letters, spaces, hyphens, and apostrophes.");
+                    continue;
+                }
+
+                return value;
+            }
         }
 
         private static Address ReadAddress()
         {
             return new Address(
                 ReadRequired("Street: "),
-                ReadRequired("City: "),
-                ReadRequired("State: "),
-                ReadRequired("Postal code: "));
+                ReadCity("City: "),
+                ReadState("State: "),
+                ReadPostalCode("Postal code: "));
+        }
+
+        private static string ReadCity(string prompt)
+        {
+            while (true)
+            {
+                Console.Write(prompt);
+                string value = (Console.ReadLine() ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Console.WriteLine("City is required.");
+                    continue;
+                }
+
+                if (ContainsDigits(value))
+                {
+                    Console.WriteLine("City cannot contain numbers. Please enter a valid city name.");
+                    continue;
+                }
+
+                if (!IsValidLocationName(value))
+                {
+                    Console.WriteLine("City can only contain letters, spaces, and hyphens.");
+                    continue;
+                }
+
+                return value;
+            }
+        }
+
+        private static string ReadState(string prompt)
+        {
+            while (true)
+            {
+                Console.Write(prompt);
+                string value = (Console.ReadLine() ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Console.WriteLine("State is required.");
+                    continue;
+                }
+
+                if (ContainsDigits(value))
+                {
+                    Console.WriteLine("State cannot contain numbers. Please enter a valid state name.");
+                    continue;
+                }
+
+                if (!IsValidLocationName(value))
+                {
+                    Console.WriteLine("State can only contain letters, spaces, and hyphens.");
+                    continue;
+                }
+
+                return value;
+            }
+        }
+
+        private static string ReadPostalCode(string prompt)
+        {
+            while (true)
+            {
+                Console.Write(prompt);
+                string value = (Console.ReadLine() ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Console.WriteLine("Postal code is required.");
+                    continue;
+                }
+
+                if (Regex.IsMatch(value, @"^\d{6}$"))
+                {
+                    return value;
+                }
+
+                Console.WriteLine("Enter a valid 6-digit postal PIN code (e.g., 560103).");
+            }
         }
 
         private static object ReadFteStatutory()
         {
             return new
             {
-                Pan = ReadRequired("PAN: "),
-                Uan = ReadRequired("UAN: ")
+                Pan = ReadPan("PAN: "),
+                Uan = ReadUan("UAN: ")
             };
+        }
+
+        private static string ReadPan(string prompt)
+        {
+            while (true)
+            {
+                Console.Write(prompt);
+                string value = (Console.ReadLine() ?? string.Empty).Trim().ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Console.WriteLine("PAN is required.");
+                    continue;
+                }
+
+                if (Regex.IsMatch(value, @"^[A-Z]{5}[0-9]{4}[A-Z]$"))
+                {
+                    return value;
+                }
+
+                Console.WriteLine("Enter a valid 10-character PAN (5 uppercase letters, 4 digits, 1 letter, e.g., ABCDE1234F).");
+            }
+        }
+
+        private static string ReadUan(string prompt)
+        {
+            while (true)
+            {
+                Console.Write(prompt);
+                string value = (Console.ReadLine() ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Console.WriteLine("UAN is required.");
+                    continue;
+                }
+
+                if (Regex.IsMatch(value, @"^\d{12}$"))
+                {
+                    return value;
+                }
+
+                Console.WriteLine("Enter a valid 12-digit UAN (e.g., 100123456789).");
+            }
+        }
+
+        private static string ReadGstin(string prompt)
+        {
+            while (true)
+            {
+                Console.Write(prompt);
+                string value = (Console.ReadLine() ?? string.Empty).Trim().ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Console.WriteLine("GSTIN is required.");
+                    continue;
+                }
+
+                if (Regex.IsMatch(value, @"^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[1-9A-Z]{1}[A-Z0-9]{1}[A-Z0-9]{1}$"))
+                {
+                    return value;
+                }
+
+                Console.WriteLine("Enter a valid 15-character GSTIN (e.g., 29ABCDE1234F1Z5).");
+            }
+        }
+
+        private static decimal ReadSalary(int employeeType)
+        {
+            if (employeeType == 3) // Intern
+            {
+                while (true)
+                {
+                    decimal amount = ReadDecimal($"Monthly stipend in INR ({CompanyRules.MinimumMonthlySalaryInr:N0} - {CompanyRules.MaximumInternStipendInr:N0}): ");
+                    if (amount < CompanyRules.MinimumMonthlySalaryInr)
+                    {
+                        Console.WriteLine($"Stipend cannot be below company floor of {CompanyRules.MinimumMonthlySalaryInr:C}.");
+                        continue;
+                    }
+
+                    if (amount > CompanyRules.MaximumInternStipendInr)
+                    {
+                        Console.WriteLine($"Intern stipend cannot exceed maximum limit of {CompanyRules.MaximumInternStipendInr:C}.");
+                        continue;
+                    }
+
+                    return amount;
+                }
+            }
+            else
+            {
+                while (true)
+                {
+                    decimal amount = ReadDecimal($"Monthly salary/rate in INR (minimum {CompanyRules.MinimumMonthlySalaryInr:N0}): ");
+                    if (amount < CompanyRules.MinimumMonthlySalaryInr)
+                    {
+                        Console.WriteLine($"Salary cannot be below company floor of {CompanyRules.MinimumMonthlySalaryInr:C}.");
+                        continue;
+                    }
+
+                    return amount;
+                }
+            }
+        }
+
+        private static string ReadSkill(string prompt)
+        {
+            while (true)
+            {
+                Console.Write(prompt);
+                string value = (Console.ReadLine() ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Console.WriteLine("Skill is required.");
+                    continue;
+                }
+
+                bool allDigits = true;
+                for (int i = 0; i < value.Length; i++)
+                {
+                    if (!char.IsDigit(value[i]))
+                    {
+                        allDigits = false;
+                        break;
+                    }
+                }
+
+                if (allDigits)
+                {
+                    Console.WriteLine("Skill cannot be just numbers. Please enter a valid skill (e.g., C#, React, Azure).");
+                    continue;
+                }
+
+                return value;
+            }
+        }
+
+        private static bool ContainsDigits(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (char.IsDigit(value[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsValidLocationName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            bool hasLetter = false;
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (char.IsLetter(c))
+                {
+                    hasLetter = true;
+                }
+                else if (c != ' ' && c != '-' && c != '.' && c != '\'')
+                {
+                    return false;
+                }
+            }
+
+            return hasLetter;
         }
 
         private static EmployeeRole ReadContractorRole()

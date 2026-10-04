@@ -88,4 +88,15 @@ namespace EmployeeManagementSystem.Exceptions
 
         public int LineNumber { get; }
     }
+
+    public sealed class FieldValidationException : EmsException
+    {
+        public FieldValidationException(string fieldName, string message)
+            : base($"{fieldName}: {message}")
+        {
+            FieldName = fieldName;
+        }
+
+        public string FieldName { get; }
+    }
 }

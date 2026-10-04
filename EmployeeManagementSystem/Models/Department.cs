@@ -8,8 +8,18 @@ namespace EmployeeManagementSystem.Models
 
         public Department(int id, string name)
         {
+            if (id <= 0)
+            {
+                throw new ArgumentException("Department id must be a positive integer.", nameof(id));
+            }
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentException("Department name cannot be empty.", nameof(name));
+            }
+
             Id = id;
-            Name = name;
+            Name = name.Trim();
             CurrentHeadcount = 0;
         }
 
