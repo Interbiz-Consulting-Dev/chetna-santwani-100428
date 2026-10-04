@@ -79,7 +79,7 @@ A clean, beginner-friendly **C# console application** that demonstrates core **O
 | Option | Action | Details |
 |---|---|---|
 | **1** | **Hire Employee** | Creates a Developer, Manager, Intern, or Contractor with validated input. |
-| **2** | **View Roster** | Displays all staff, active only, leavers only, or filtered by department. |
+| **2** | **View Employee List** | Displays all staff, active only, leavers only, or filtered by department. |
 | **3** | **Assign Department** | Links an employee to a department and updates department headcount. |
 | **4** | **Give Salary Raise** | Validates positive amount and reason, then updates base salary. |
 | **5** | **Update Address** | Two-step address update: preview proposed relocation then confirm. |

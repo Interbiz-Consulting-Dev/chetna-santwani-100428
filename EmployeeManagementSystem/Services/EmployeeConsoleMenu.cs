@@ -77,7 +77,7 @@ namespace EmployeeManagementSystem.Services
                             HireEmployee();
                             break;
                         case 2:
-                            ListRoster();
+                            ViewEmployeeList();
                             break;
                         case 3:
                             AssignDepartment();
@@ -126,7 +126,7 @@ namespace EmployeeManagementSystem.Services
             Console.WriteLine("       Sample Company Inc - Employee System       ");
             Console.WriteLine("==================================================");
             Console.WriteLine("1. Hire employee");
-            Console.WriteLine("2. View roster");
+            Console.WriteLine("2. View employee list");
             Console.WriteLine("3. Assign department");
             Console.WriteLine("4. Give raise");
             Console.WriteLine("5. Update employee address");
@@ -206,9 +206,9 @@ namespace EmployeeManagementSystem.Services
             }
         }
 
-        private void ListRoster()
+        private void ViewEmployeeList()
         {
-            Console.WriteLine("=== View Employee Roster ===");
+            Console.WriteLine("=== View Employee List ===");
             Console.WriteLine("1. All employees");
             Console.WriteLine("2. Active employees only");
             Console.WriteLine("3. Resigned employees only");
