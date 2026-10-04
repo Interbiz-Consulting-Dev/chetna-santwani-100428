@@ -72,20 +72,15 @@ namespace EmployeeManagementSystem.Exceptions
         public int StaffId { get; }
     }
 
-    public sealed class RosterFormatException : EmsException
+
+    public sealed class FieldValidationException : EmsException
     {
-        public RosterFormatException(int lineNumber, string reason)
-            : base($"Roster line {lineNumber} is invalid: {reason}")
+        public FieldValidationException(string fieldName, string message)
+            : base($"{fieldName}: {message}")
         {
-            LineNumber = lineNumber;
+            FieldName = fieldName;
         }
 
-        public RosterFormatException(int lineNumber, string reason, Exception innerException)
-            : base($"Roster line {lineNumber} is invalid: {reason}", innerException)
-        {
-            LineNumber = lineNumber;
-        }
-
-        public int LineNumber { get; }
+        public string FieldName { get; }
     }
 }

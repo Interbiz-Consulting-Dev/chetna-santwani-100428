@@ -70,43 +70,6 @@ namespace EmployeeManagementSystem.Models
 
         public static int ActiveHeadcount => _activeHeadcount;
 
-        // Load rebuilds the census from disk. These counters are process-wide
-        // (Phase 1), so a reload must rewind them or ids/headcount double.
-        internal static void ResetCensusForFileLoad()
-        {
-            _nextStaffId = 1;
-            _activeHeadcount = 0;
-        }
-
-        // Rehydrate from disk: keep the saved id/status/salary. Do not go through
-        // AllocateStaffId or Resign() — those are hire/exit workflows, not restore.
-        protected Employee(EmployeeState state, object statutory)
-        {
-            Id = state.Id;
-            Name = state.Name;
-            Role = state.Role;
-            Contract = state.Contract;
-            Status = state.Status;
-            HomeAddress = state.HomeAddress;
-            HireDate = state.HireDate;
-            _monthlySalaryInr = state.MonthlySalaryInr;
-            _lastRaiseReason = state.LastRaiseReason;
-            LastDay = state.LastDay;
-            ProbationEndsOn = CompanyRules.ComputeProbationEnd(state.Contract, state.HireDate);
-            DepartmentId = null;
-            Statutory = statutory;
-
-            if (state.Id >= _nextStaffId)
-            {
-                _nextStaffId = state.Id + 1;
-            }
-
-            if (Status == EmploymentStatus.Active)
-            {
-                _activeHeadcount++;
-            }
-        }
-
         // Encapsulation: every salary change (hire, raise) goes through here so
         // payroll cannot store a figure below the company floor or on a leaver.
         protected virtual void SetMonthlySalary(decimal monthlySalaryInr)

@@ -18,11 +18,6 @@ namespace EmployeeManagementSystem.Models
             PrimarySkill = primarySkill;
         }
 
-        internal Developer(EmployeeState state, object statutory)
-            : base(state, statutory)
-        {
-            PrimarySkill = state.Extra;
-        }
 
         public override int NoticePeriodDays => 30;
 

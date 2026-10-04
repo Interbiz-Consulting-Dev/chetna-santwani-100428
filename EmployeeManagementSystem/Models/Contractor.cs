@@ -15,10 +15,6 @@ namespace EmployeeManagementSystem.Models
         {
         }
 
-        internal Contractor(EmployeeState state, object statutory)
-            : base(state, statutory)
-        {
-        }
 
         public override int NoticePeriodDays => 15;
 
