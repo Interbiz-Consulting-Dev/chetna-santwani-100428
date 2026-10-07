@@ -380,6 +380,9 @@ namespace EmployeeManagementSystem.Services
             Console.WriteLine($"Total Base Pay:      {totalBase:C}");
             Console.WriteLine($"Total Variable Pay:  {totalVariable:C}");
             Console.WriteLine($"Grand Total Payout:  {(totalBase + totalVariable):C}");
+
+            string exportPath = LegacyPayrollExporter.Export(active, _today);
+            Console.WriteLine($"Legacy payroll export saved to: {exportPath}");
         }
 
         private Employee ReadEmployee()

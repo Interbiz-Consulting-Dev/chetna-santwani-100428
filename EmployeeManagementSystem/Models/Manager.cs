@@ -1,12 +1,11 @@
 using EmployeeManagementSystem.Enums;
-using EmployeeManagementSystem.Interfaces;
 
 namespace EmployeeManagementSystem.Models
 {
     // Identity and pay live here. Team roster APIs live in Manager.Team.cs —
     // a light split (the type is not huge yet) so "who this manager is" stays
     // separate from "how they run a team" as that second responsibility grows.
-    public partial class Manager : Employee, ITeamCapable
+    public partial class Manager : Employee
     {
         public Manager(
             PersonName name,

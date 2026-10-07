@@ -7,8 +7,7 @@ namespace EmployeeManagementSystem.Models
     // Abstract class = what someone IS: a person on this company's books.
     // There is no generic hire — payroll, notice, and variable pay only make
     // sense on a concrete contract (full-time developer, manager, intern,
-    // contractor). Interface ITeamCapable is the CAN-DO counterpart for
-    // leading a team; it is not on this type because most employees do not.
+    // contractor). Team roster behavior stays on Manager, not on every employee.
     public abstract class Employee
     {
         private static int _nextStaffId = 1;
